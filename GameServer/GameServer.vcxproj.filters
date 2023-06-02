@@ -1,0 +1,51 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Main">
+      <UniqueIdentifier>{ee5bb975-e5c6-4c90-95e1-fabe37849bd2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Utils">
+      <UniqueIdentifier>{69a962af-4ae6-47d4-98d0-fa4d6ffdacd7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Main\dump">
+      <UniqueIdentifier>{8eb9251a-10b3-4aab-9a6f-77a7ba51218e}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="GameServer.cpp">
+      <Filter>Main</Filter>
+    </ClCompile>
+    <ClCompile Include="pch.cpp">
+      <Filter>Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="ConcurrentQueue.cpp">
+      <Filter>Main</Filter>
+    </ClCompile>
+    <ClCompile Include="ConcurrentStack.cpp">
+      <Filter>Main</Filter>
+    </ClCompile>
+    <ClCompile Include="AccountManager.cpp">
+      <Filter>Main\dump</Filter>
+    </ClCompile>
+    <ClCompile Include="PlayerManager.cpp">
+      <Filter>Main\dump</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="ConcurrentQueue.h">
+      <Filter>Main</Filter>
+    </ClInclude>
+    <ClInclude Include="ConcurrentStack.h">
+      <Filter>Main</Filter>
+    </ClInclude>
+    <ClInclude Include="AccountManager.h">
+      <Filter>Main\dump</Filter>
+    </ClInclude>
+    <ClInclude Include="PlayerManager.h">
+      <Filter>Main\dump</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
