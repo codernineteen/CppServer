@@ -32,3 +32,14 @@ __analysis_assume(crash != nullptr);\
 	__analysis_assume(expr);		\
 	}								\
 }
+
+/**
+	Memory
+*/
+
+#ifdef _DEBUG
+
+#define XALLOC(size)  BaseAllocator::Alloc(size)
+#define XRELEASE(ptr) BaseAllocator::Release(ptr)
+
+#endif // _DEBUG
