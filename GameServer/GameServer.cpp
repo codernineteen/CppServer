@@ -77,6 +77,35 @@ int main()
         char ipAddress[16];
         ::inet_ntop(AF_INET, &clientAddr.sin_addr, ipAddress, sizeof(ipAddress));
         cout << "client connected : " << ipAddress << endl;
+
+        //TODO
+        while (true)
+        {
+            char recvBuffer[1000];
+            
+            this_thread::sleep_for(1s);
+
+            int32 sizeOfData = ::recv(clientSocket, recvBuffer, sizeof(recvBuffer), 0); //recv는 받은 데이터의 크기를 반환해준다.
+
+            if (sizeOfData <= 0)
+            {
+                int32 errCode = ::WSAGetLastError();
+                cout << "Socket error code is : " << errCode << endl;
+                return 1;
+            }
+
+            cout << "Recv data. Data : " << recvBuffer << endl;
+            cout << "Recv data. Len : " << sizeOfData << endl;
+
+            ////echo 서버의 형식으로 받은 데이터를 다시 클라이언트에게 돌려준다.
+            //int32 resultCode = ::send(clientSocket, recvBuffer, sizeOfData, 0); // send 실행 시, 결과 코드를 반환
+            //if (resultCode == SOCKET_ERROR)
+            //{
+            //    int32 errCode = ::WSAGetLastError();
+            //    cout << "Socket error code is : " << errCode << endl;
+            //    return 1;
+            //}
+        }
     }
 
     ::WSACleanup(); //socket terminate

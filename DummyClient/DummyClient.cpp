@@ -11,8 +11,6 @@ int main()
 	//win socket initailize -> 라이브러리 초기화
 	WSAData wsaData;
     if (::WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        /* Tell the user that we could not find a usable */
-        /* Winsock DLL.                                  */
         printf("WSAStartup failed with error");
         return 1;
     }
@@ -34,7 +32,6 @@ int main()
     serverAddr.sin_family = AF_INET; //주소 체계 field
     ::inet_pton(AF_INET, "127.0.0.1", &serverAddr.sin_addr); //로컬 호스트 주소 - 4바이트 정수
     serverAddr.sin_port = ::htons(7777); //포트 바인딩(예약된 포트번호를 제외하고 임의의 번호를 지정 - 같은 ip에 대해서 고유식별자 역할)
-    //htons : Host to network short
 
     //ipv4로 생성한 주소체계를 다시 일반적인 소켓 주소 타입으로 캐스팅해서 인자로 넘긴다.
     if (::connect(clientSocket, (SOCKADDR*)&serverAddr, sizeof(serverAddr)))
@@ -48,6 +45,35 @@ int main()
     cout << "Connected to server" << endl;
     while (true)
     {
+        //TODO - 데이터 전송
+        char sendBuffer[100] = "hello wordl!";
+
+        for(int32 i=0; i < 10; i++)
+        {
+            int32 resultCode = ::send(clientSocket, sendBuffer, sizeof(sendBuffer), 0); // send 실행 시, 결과 코드를 반환
+            if (resultCode == SOCKET_ERROR)
+            {
+                int32 errCode = ::WSAGetLastError();
+                cout << "Socket error code is : " << errCode << endl;
+                return 1;
+            }
+        }
+
+        cout << "Send data. Len : " << sizeof(sendBuffer) << endl;
+
+        //char recvBuffer[1000];
+        //int32 sizeOfData = ::recv(clientSocket, recvBuffer, sizeof(recvBuffer), 0); //recv는 받은 데이터의 크기를 반환해준다.
+
+        //if (sizeOfData <= 0)
+        //{
+        //    int32 errCode = ::WSAGetLastError();
+        //    cout << "Socket error code is : " << errCode << endl;
+        //    return 1;
+        //}
+
+        //cout << "Recv data. Data : " << recvBuffer << endl;
+        //cout << "Recv data. Len : " << sizeOfData << endl;
+
         this_thread::sleep_for(1s);
     }
 
