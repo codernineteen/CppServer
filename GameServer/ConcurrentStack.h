@@ -30,7 +30,6 @@
 //SListEntrySingle* PopEntrySList(SListHeaderSingle* header);
 
 
-
 /**
 	Version 2 - multi thread env
 */
