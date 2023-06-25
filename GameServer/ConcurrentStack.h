@@ -3,195 +3,82 @@
 #include <mutex>
 #include <atomic>
 
-template<typename T>
-class LockStack
-{
-public:
-	LockStack(){}
+/**
+	Version 1
+*/
 
-	//prevent copy about LockStack instance
-	LockStack(const LockStack&) = delete;
-	LockStack& operator=(const LockStack&) = delete;
-
-	void Push(T value)
-	{
-		lock_guard<mutex> lock(_mutex);
-		_stack.push(std::move(value));
-		_condVar.notify_one();
-	}
-
-	bool TryPop(T& value)
-	{
-		//In multi-thread environment, it is meaningless to separate empty check into other subroutine
-		//Because the result always can be different even if it was empty or not empty at the moment.
-
-		lock_guard<mutex> lock(_mutex);
-		if (_stack.empty())
-			return false;
-
-		// empty -> top -> pop
-		value = std::move(_stack.top());
-		_stack.pop();
-		return true;
-	}
-
-	void WaitPop(T& value)
-	{
-		unique_lock<mutex> lock(_mutex);
-		_condVar.wait(lock, [this] {return _stack.empty() == false; });
-		value = std::move(_stack.top());
-		_stack.pop();
-	}
-
-private:
-	stack<T> _stack;
-	mutex _mutex;
-	condition_variable _condVar; //To wake a blocked process up
-};
-
-//template<typename T>
-//class LockFreeStack
+//노드 안에 데이터와 다음 노드에 대한 포인터가 중첩된 형태의 구조를 사용하는 대신
+// 그 둘을 분리해서 개별 구조로 관리하는 방법
+//struct SListEntrySingle
 //{
-//	struct Node
-//	{
-//		Node(const T& value) : data(make_shared<T>(value)), next(nullptr) {}
-//		shared_ptr<T> data;
-//		shared_ptr<Node> next;
-//	};
-//
-//public:
-//	void Push(const T& value)
-//	{
-//		shared_ptr<Node> node = make_shared<Node>(value);
-//		node->next = std::atomic_load(&_head);
-//
-//		while (std::atomic_compare_exchange_weak(&_head, &node->next, node) == false)
-//		{
-//
-//		}
-//	}
-//
-//	shared_ptr<T> TryPop()
-//	{
-//		shared_ptr<Node> oldHead = std::atomic_load(&_head);
-//
-//		while (oldHead && std::atomic_compare_exchange_weak(&_head, &oldHead, oldHead->next) == false)
-//		{
-//
-//		}
-//
-//		if (oldHead == nullptr)
-//		{
-//			return shared_ptr<T>();
-//		}
-//
-//		return oldHead->data;
-//	}
-//
-//private:
-//	shared_ptr<Node> _head;
+//	SListEntrySingle* next;
 //};
 
 
+// 헤더가 첫번째 데이터를 가르키고 있고, 첫번째 데이터는 다음 데이터를 가르킨다.
+// [data ][  ][  ]
+// Header[ next ] : next는 어떤 데이터를 가르키고 있다.
+//struct SListHeaderSingle
+//{
+//	SListEntrySingle* next = nullptr;
+//};
+//
+//void InitHead(SListHeaderSingle* header);
+//
+//void PushEntrySList(SListHeaderSingle* header, SListEntrySingle* entry);
+//
+//SListEntrySingle* PopEntrySList(SListHeaderSingle* header);
 
-template<typename T>
-class LockFreeStack
+
+
+/**
+	Version 2 - multi thread env
+*/
+
+DECLSPEC_ALIGN(16) // 16 byte alignment
+struct SListEntry
 {
-	struct Node;
-
-	struct CountedNodePtr
-	{
-		int32 externalCount = 0;
-		Node* ptr = nullptr;
-	};
-
-	struct Node
-	{
-		Node(const T& value) : data(make_shared<T>(value)) 
-		{
-		
-		}
-		shared_ptr<T> data;
-		atomic<int32> internalCount = 0;
-		CountedNodePtr next;
-	};
-
-public:
-	void Push(const T& value)
-	{
-		CountedNodePtr node;
-		node.ptr = new Node(value);
-		node.externalCount = 1;
-		 
-		node.ptr->next = _head;
-		while (_head.compare_exchange_weak(node.ptr->next, node) == false)
-		{
-			
-		}
-	}
-
-	shared_ptr<T> TryPop()
-	{
-		CountedNodePtr prevHead = _head;
-		while (true)
-		{
-			//gain reference 
-			IncreaseHeadCount(prevHead);
-			//At this moment, external count is larger or equal than 2 => safe
-			Node* ptr = prevHead.ptr;
-
-			if (ptr == nullptr)
-				return  shared_ptr<T>();
-
-			//gain ownership(winner is who exchanges ptr->next with _head)
-			if (_head.compare_exchange_strong(prevHead, ptr->next))
-			{
-				shared_ptr<T> res;
-				res.swap(ptr->data);
-
-				//external : 1 -> 2(+1) when only one reference occur
-				//internal : 0 -> 
-
-				//check whether winner only refer to ptr
-				const int32 countIncrease = prevHead.externalCount - 2;
-				//fetch_add return a state before operation done
-				if (ptr->internalCount.fetch_add(countIncrease) == -countIncrease)
-				{ 
-					delete ptr;
-				}
-
-				//if there was more reference to ptr, just return res
-
-				return res;
-			}
-			else if(ptr->internalCount.fetch_sub(1) == 1) //loser decerements internalcount
-				//when it is 1, it means that the loser is last thread who referred to this pointer
-				//so it delete ptr and go out
-			{
-				//gain reference, but not ownership
-				delete ptr;
-			}
-
-		}
-	}
-
-	void IncreaseHeadCount(CountedNodePtr& prevCounter)
-	{
-		while (true)
-		{
-			CountedNodePtr newCounter = prevCounter; //copy previous counter
-			newCounter.externalCount++; //interuppt possible
-
-			if (_head.compare_exchange_strong(prevCounter, newCounter))
-			{
-				//If compare is success
-				prevCounter.externalCount = newCounter.externalCount;
-				break;
-			}
-			
-		}
-	}
-
-private:
-	atomic<CountedNodePtr> _head;
+	SListEntry* next;
 };
+
+
+DECLSPEC_ALIGN(16)
+class Data
+{
+public:
+	SListEntry _entry;
+	int64 _rand = rand() % 1000;
+};
+
+DECLSPEC_ALIGN(16)
+struct SListHeader
+{
+	SListHeader()
+	{
+		alignment = 0;
+		region = 0;
+	}
+
+	union
+	{
+		struct
+		{
+			uint64 alignment;
+			uint64 region;
+		} DUMMYSTRUCTNAME;
+
+		struct
+		{
+			uint64 depth : 16;
+			uint64 sequence : 48;
+			uint64 reserved : 4;
+			uint64 next : 60;
+		} HeaderX64;
+	};
+};
+
+void InitHead(SListHeader* header);
+
+void PushEntrySList(SListHeader* header, SListEntry* entry);
+
+SListEntry* PopEntrySList(SListHeader* header);

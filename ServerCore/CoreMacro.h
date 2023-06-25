@@ -38,7 +38,9 @@ __analysis_assume(crash != nullptr);\
 */
 
 #ifdef _DEBUG
-
+#define XALLOC(size)  PoolAllocator::Alloc(size)
+#define XRELEASE(ptr) PoolAllocator::Release(ptr)
+#else
 #define XALLOC(size)  BaseAllocator::Alloc(size)
 #define XRELEASE(ptr) BaseAllocator::Release(ptr)
 
