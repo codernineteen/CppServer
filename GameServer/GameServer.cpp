@@ -12,32 +12,56 @@
 #include "Memory.h"
 #include "Allocator.h"
 
-class Knight
+using TL = TypeList<class Player, class Mage, class Knight, class Archer>;
+
+class Player
 {
 public:
-	Knight()
-	{
-		cout << "knight constructed" << endl;
-		_hp = 0;
-	}
+	Player() {
+		INIT_TL(Player)
+	};
 
-	Knight(int32 hp) : _hp(hp) {}
+	DECLARE_TL
+};
 
-	~Knight()
-	{
-		cout << "Knight Destructed" << endl;
-	}
-	
-	int32 _hp;
+class Knight : public Player
+{
+public:
+	Knight() {
+		INIT_TL(Knight)
+	};
+};
+
+class Mage : public Player
+{
+public:
+	Mage() {
+		INIT_TL(Mage)
+	};
+};
+
+class Archer : public Player
+{
+public:
+	Archer() {
+		INIT_TL(Archer)
+	};
 };
 
 int main() 
 {
-	//There are more cases in that we allocates memory
-	//like STL data structures
-	//STL data structures basically allocated by default new and delete
-	//But we can pass the Allocator parameter for it 
-	//At the same time, we should satisfy the data structure which STL expects to
+	{
+		Player* player = new Knight();
+		bool canCast = CanCast<Knight*>(player);
+		Knight* knight = TypeCast<Knight*>(player);
 
-	Vector<Knight> v(100);
-}
+		delete player;
+	}
+	
+	{
+		shared_ptr<Knight> knight = MakeShared<Knight>();
+		shared_ptr<Player> p1 = TypeCast<Player>(knight);
+	}
+
+	return 0;
+} 
