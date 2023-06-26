@@ -14,98 +14,65 @@
 #include <ws2tcpip.h>
 #pragma comment(lib, "ws2_32.lib")
 
+int HandleError() 
+{
+    int32 errCode = ::WSAGetLastError();
+    cout << "Socket error code is : " << errCode << endl;
+    return 1;
+}
+
 int main() 
 {
     //Win socket initialization
     WSAData wsaData;
-    if (::WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        /* Tell the user that we could not find a usable */
-        /* Winsock DLL.                                  */
+    if (::WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
+    {
         printf("WSAStartup failed with error");
         return 1;
     }
 
-    //Listen socket initialization
-    SOCKET listenSocket = ::socket(AF_INET, SOCK_STREAM, 0); //cross platform socket interface
-    if (listenSocket == INVALID_SOCKET)
+    //udp에서는 유일한 소켓 하나로 통신을 한다.
+    SOCKET serverSocket = ::socket(AF_INET, SOCK_DGRAM, 0);
+    if (serverSocket == INVALID_SOCKET)
     {
-        int32 errCode = ::WSAGetLastError();
-        cout << "Socket error code is : " << errCode << endl;
-        return 1;
+        return HandleError();
     }
 
-    // 서버 주소
-    SOCKADDR_IN serverAddr;
-    ::memset(&serverAddr, 0, sizeof(serverAddr)); 
+    SOCKADDR_IN serverAddr; 
+    ::memset(&serverAddr, 0, sizeof(serverAddr));
     serverAddr.sin_family = AF_INET; 
-    serverAddr.sin_addr.s_addr = ::htonl(INADDR_ANY); //알아서 주소를 고름(유동적으로 동작)
+    serverAddr.sin_addr.s_addr = ::htonl(INADDR_ANY);
     serverAddr.sin_port = ::htons(7777); 
 
-    // 포트 바인딩
-    if (::bind(listenSocket, (SOCKADDR*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR)
+    if (::bind(serverSocket, (SOCKADDR*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR)
     {
-        int32 errCode = ::WSAGetLastError();
-        cout << "Socket error code is : " << errCode << endl;
-        return 1;
+        return HandleError();
     }
 
-    // start listen
-    //backlog는 어떤 대기열이 있을 때 최대 대기자 수를 지정한다.
-    if (::listen(listenSocket, 10))
-    {
-        int32 errCode = ::WSAGetLastError();
-        cout << "Socket error code is : " << errCode << endl;
-        return 1;
-    }
-
-    // ---- communication start ----
+    //udp 준비 끝
     while (true)
     {
-        SOCKADDR_IN clientAddr; //클라이언트 주소
+        //연결 과정없이 데이터를 보내는 것이 특징
+        SOCKADDR_IN clientAddr;
         ::memset(&clientAddr, 0, sizeof(clientAddr));
         int32 addrLen = sizeof(clientAddr);
+
+        this_thread::sleep_for(1s);
+
+        char recvBuffer[1000];
+        int32 recvLen = ::recvfrom(serverSocket, recvBuffer, sizeof(recvBuffer), 0, (SOCKADDR*)&clientAddr, &addrLen) ;
         
-        SOCKET clientSocket = ::accept(listenSocket, (SOCKADDR*)&clientAddr, &addrLen); //accpet함수는 성공 시 클라이언트 소켓을 반환해주고, 이 소켓을 통해서 통신을 한다.
-        if(clientSocket == INVALID_SOCKET)
-        { 
-            int32 errCode = ::WSAGetLastError();
-            cout << "Socket error code is : " << errCode << endl;
-            return 1;
-        }
+        if (recvLen <= 0)
+            return HandleError();
 
-        //client entered
-        char ipAddress[16];
-        ::inet_ntop(AF_INET, &clientAddr.sin_addr, ipAddress, sizeof(ipAddress));
-        cout << "client connected : " << ipAddress << endl;
+        cout << "Recv data : " << recvBuffer << endl;
 
-        //TODO
-        while (true)
-        {
-            char recvBuffer[1000];
-            
-            this_thread::sleep_for(1s);
+        int32 errCode = ::sendto(serverSocket, recvBuffer, recvLen, 0, (SOCKADDR*)&clientAddr, addrLen);
 
-            int32 sizeOfData = ::recv(clientSocket, recvBuffer, sizeof(recvBuffer), 0); //recv는 받은 데이터의 크기를 반환해준다.
+        if (errCode == SOCKET_ERROR)
+            return HandleError();
 
-            if (sizeOfData <= 0)
-            {
-                int32 errCode = ::WSAGetLastError();
-                cout << "Socket error code is : " << errCode << endl;
-                return 1;
-            }
-
-            cout << "Recv data. Data : " << recvBuffer << endl;
-            cout << "Recv data. Len : " << sizeOfData << endl;
-
-            ////echo 서버의 형식으로 받은 데이터를 다시 클라이언트에게 돌려준다.
-            //int32 resultCode = ::send(clientSocket, recvBuffer, sizeOfData, 0); // send 실행 시, 결과 코드를 반환
-            //if (resultCode == SOCKET_ERROR)
-            //{
-            //    int32 errCode = ::WSAGetLastError();
-            //    cout << "Socket error code is : " << errCode << endl;
-            //    return 1;
-            //}
-        }
+        cout << "Send data : " << recvBuffer << endl;
     }
 
     ::WSACleanup(); //socket terminate
