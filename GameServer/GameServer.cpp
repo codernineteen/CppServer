@@ -21,6 +21,15 @@ int HandleError()
     return 1;
 }
 
+const int32 BUFFSIZE = 1000;
+struct Session
+{
+    SOCKET socket = INVALID_SOCKET;
+    char recvBuffer[BUFFSIZE];
+    int32 recvBytes = 0;
+    int32 sendBytes = 0;
+};
+
 int main()
 {
     //Win socket initialization
@@ -56,65 +65,28 @@ int main()
 
     cout << "Accept" << endl;
 
-    SOCKADDR_IN clientAddr;
-    int32 addrLen = sizeof(clientAddr);
+    //WSAEventSelect = (event select 함수가 핵심이 된다.)
 
-    // Accept
+    vector<WSAEVENT> wsaEvents; //세션 개수만큼 비례해서 생성
+    vector<Session> sessions;
+    sessions.reserve(100);
+
+    WSAEVENT listenEvent = ::WSACreateEvent(); // 이벤트 생성
+    wsaEvents.push_back(listenEvent);
+    sessions.push_back({ listenSocket }); //엄밀히 클라이언트 관련 세션은 아니지만, 대응되는 이벤트와 인덱스를 매치시켜서 편리하게 사용하기 위함.
+    //소켓과 이벤트 객체를 관련 이벤트로 연동
+    if (::WSAEventSelect(listenSocket, listenEvent, FD_ACCEPT | FD_CLOSE) == SOCKET_ERROR)
+    {
+        return 0;
+    }
+
+
     while (true)
     {
-        SOCKET clientSocket = ::accept(listenSocket, (SOCKADDR*)&clientAddr, &addrLen);
-        if (clientSocket == INVALID_SOCKET)
-        {
-            //non blocking 소켓을 사용할 때는, 원래 블록했어야할 상황을 블록하지 않았기 때문에
-            //오류라고 확정할 수 없다. 따라서 추가적인 검사가 필요하다.
-            if (::WSAGetLastError() == WSAEWOULDBLOCK)
-                continue; // 이 상황이라면 accept을 블록하지 않은 상황으로부터 발생한 것이라 큰 문제는 아니다.
-
-            //ERROR
-            break;
-        }
-
-        cout << "Client Connected" << endl;
-
-        // Recv
-        while (true)
-        {
-            char recvBuffer[1000];
-            int32 recvLen = ::recv(clientSocket, recvBuffer, sizeof(recvBuffer), 0);
-            if (recvLen == SOCKET_ERROR)
-            {
-                //데이터를 수신하는 과정에서도 마찬가지로, 논블로킹 특성으로 정상 작동 중인데 아직 데이터를 가져오는 과정을 끝마치지 못해서 데이터 길이가 올바르지 않은 상황이 있을 수도 있다.
-                if (::WSAGetLastError() == WSAEWOULDBLOCK)
-                    continue;
-
-                //Error
-                break;
-            }
-            else if (recvLen == 0)
-            {
-                //연결 끊김
-                break;
-            }
-
-            cout << "Recv Data Len" << recvLen << endl;
-
-            //Send - send도 바로 성공한다는 보장이 없다.
-            while (true)
-            {
-                if (::send(clientSocket, recvBuffer, recvLen, 0) == SOCKET_ERROR)
-                {
-                    if (::WSAGetLastError() == WSAEWOULDBLOCK)
-                        continue;
-
-                    //Error
-                    break;
-                }
-
-                cout << "Sent data " << endl;
-                break;
-            }
-        }
+        
     }
+
+
 
    
     ::WSACleanup(); //socket terminate
