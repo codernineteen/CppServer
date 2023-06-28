@@ -16,6 +16,7 @@ int HandleError()
 
 int main()
 {
+    this_thread::sleep_for(1s);
 	//win socket initailize -> 라이브러리 초기화
 	WSAData wsaData;
     if (::WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
