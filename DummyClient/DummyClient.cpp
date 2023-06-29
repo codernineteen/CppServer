@@ -16,7 +16,6 @@ int HandleError()
 
 int main()
 {
-    this_thread::sleep_for(1s);
 	//win socket initailize -> 라이브러리 초기화
 	WSAData wsaData;
     if (::WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
@@ -54,42 +53,39 @@ int main()
     }
 
     cout << "CONNECTED" << endl;
+
     char sendBuffer[100] = "Hello world!";
+
+    WSAEVENT wsaEvent = ::WSACreateEvent();
+    WSAOVERLAPPED overlapped = {};
+    overlapped.hEvent = wsaEvent;
+
 
     while (true)
     {
-        if (::send(clientSocket, sendBuffer, sizeof(sendBuffer), 0) == SOCKET_ERROR)
+        WSABUF wsaBuf;
+        wsaBuf.buf = sendBuffer; //커널이 처리하기 때문에 절대로 건들면 안되는 부분
+        wsaBuf.len = sizeof(sendBuffer);
+
+        DWORD sendLen = 0;
+        DWORD flags = 0;
+
+        if (::WSASend(clientSocket, &wsaBuf, 1, &sendLen, flags, &overlapped, nullptr) == SOCKET_ERROR)
         {
-            if (::WSAGetLastError() == WSAEWOULDBLOCK)
-                continue;
-
-            //Error
-            break;
-        }
-
-        cout << "Sent data : " << sendBuffer << endl;
-
-        while (true)
-        {
-            char recvBuffer[1000];
-            int32 recvLen = ::recv(clientSocket, recvBuffer, sizeof(recvBuffer), 0);
-            if (recvLen == SOCKET_ERROR)
+            if (::WSAGetLastError() == WSA_IO_PENDING)
             {
-                if (::WSAGetLastError() == WSAEWOULDBLOCK)
-                    continue;
-
-                //Error
+                //pending 상태 - recvLen이 아직 채워지지 않음
+                ::WSAWaitForMultipleEvents(1, &wsaEvent, TRUE, WSA_INFINITE, FALSE); //이벤트 형식으로 대기
+                ::WSAGetOverlappedResult(clientSocket, &overlapped, &sendLen, FALSE, &flags);
+            }
+            else
+            {
+                //에러 사후 처리
                 break;
             }
-            else if (recvLen == 0)
-            {
-                //연결 끊김
-                break;
-            }
-
-            cout << "Recv data : " << recvBuffer << endl;
-            break;
         }
+        cout << "Send data len : " << sendLen << endl;
+
         this_thread::sleep_for(1s);
     }
     
