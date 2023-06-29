@@ -1,132 +1,142 @@
-// GameServer.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
 #include "pch.h"
 #include <iostream>
-#include <thread> 
+#include "CorePch.h"
 #include <atomic>
 #include <mutex>
 #include <windows.h>
 #include <future>
 #include "ThreadManager.h"
 
-#include <WinSock2.h> //window 용 소켓 라이브러리
-#include <MSWSock.h>
+#include <winsock2.h>
+#include <mswsock.h>
 #include <ws2tcpip.h>
 #pragma comment(lib, "ws2_32.lib")
 
-int HandleError() 
+void HandleError(const char* cause)
 {
-    int32 errCode = ::WSAGetLastError();
-    cout << "Socket error code is : " << errCode << endl;
-    return 1;
+	int32 errCode = ::WSAGetLastError();
+	cout << cause << " ErrorCode : " << errCode << endl;
 }
 
-const int32 BUFFSIZE = 1000;
+const int32 BUFSIZE = 1000;
 
 struct Session
 {
-    SOCKET socket = INVALID_SOCKET;
-    char recvBuffer[BUFFSIZE];
-    int32 recvBytes = 0;
-    WSAOVERLAPPED overlapped = {};
+	WSAOVERLAPPED overlapped = {};
+	SOCKET socket = INVALID_SOCKET;
+	char recvBuffer[BUFSIZE] = {};
+	int32 recvBytes = 0;
 };
+
+void CALLBACK RecvCallback(DWORD error, DWORD recvLen, LPWSAOVERLAPPED overlapped, DWORD flags)
+{
+	cout << "Data Recv Len Callback = " << recvLen << endl;
+	// TODO : 에코 서버를 만든다면 WSASend()
+
+	Session* session = (Session*)overlapped;
+
+}
 
 int main()
 {
-    //Win socket initialization
-    WSAData wsaData;
-    if (::WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
-    {
-        printf("WSAStartup failed with error");
-        return 1;
-    }
+	WSAData wsaData;
+	if (::WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
+		return 0;
 
-    //TCP 소켓
-    SOCKET listenSocket = ::socket(AF_INET, SOCK_STREAM, 0);
-    if (listenSocket == INVALID_SOCKET)
-        return HandleError();
+	SOCKET listenSocket = ::socket(AF_INET, SOCK_STREAM, 0);
+	if (listenSocket == INVALID_SOCKET)
+		return 0;
 
+	u_long on = 1;
+	if (::ioctlsocket(listenSocket, FIONBIO, &on) == INVALID_SOCKET)
+		return 0;
 
-    u_long on = 1;
-    //non-blocking 소켓으로 설정
-    if (::ioctlsocket(listenSocket, FIONBIO, &on) == INVALID_SOCKET)
-        return HandleError();
+	SOCKADDR_IN serverAddr;
+	::memset(&serverAddr, 0, sizeof(serverAddr));
+	serverAddr.sin_family = AF_INET;
+	serverAddr.sin_addr.s_addr = ::htonl(INADDR_ANY);
+	serverAddr.sin_port = ::htons(7777);
 
-    SOCKADDR_IN serverAddr;
-    ::memset(&serverAddr, 0, sizeof(serverAddr));
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = ::htonl(INADDR_ANY);
-    serverAddr.sin_port = ::htons(3000);
+	if (::bind(listenSocket, (SOCKADDR*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR)
+		return 0;
 
-    if (::bind(listenSocket, (SOCKADDR*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR)
-        return HandleError();
+	if (::listen(listenSocket, SOMAXCONN) == SOCKET_ERROR)
+		return 0;
 
-    if (::listen(listenSocket, SOMAXCONN) == SOCKET_ERROR)
-        return HandleError();
+	cout << "Accept" << endl;
 
-    cout << "Accept" << endl;
+	// Overlapped 모델 (Completion Routine 콜백 기반)
+	// - 비동기 입출력 지원하는 소켓 생성
+	// - 비동기 입출력 함수 호출 (완료 루틴의 시작 주소를 넘겨준다)
+	// - 비동기 작업이 바로 완료되지 않으면, WSA_IO_PENDING 오류 코드
+	// - 비동기 입출력 함수 호출한 쓰레드를 -> Alertable Wait 상태로 만든다
+	// ex) WaitForSingleObjectEx, WaitForMultipleObjectsEx, SleepEx, WSAWAitForMultipleEvents
+	// - 비동기 IO 완료되면, 운영체제는 완료 루틴 호출
+	// - 완료 루틴 호출이 모두 끝나면, 쓰레드는 Alertable Wait 상태에서 빠져나온다
 
-    //overlapped model(event based)
-    while (true)
-    {
-        SOCKADDR_IN clientAddr;
-        int32 addrLen = sizeof(clientAddr);
+	// 1) 오류 발생시 0 아닌 값
+	// 2) 전송 바이트 수
+	// 3) 비동기 입출력 함수 호출 시 넘겨준 WSAOVERLAPPED 구조체의 주소값
+	// 4) 0
+	//void CompletionRoutine()
 
-        SOCKET clientSocket;
-        while (true)
-        {
-            clientSocket = ::accept(listenSocket, (SOCKADDR*)&clientAddr, &addrLen);
+	while (true)
+	{
+		SOCKADDR_IN clientAddr;
+		int32 addrLen = sizeof(clientAddr);
 
-            if (clientSocket != INVALID_SOCKET)
-                break;
+		SOCKET clientSocket;
+		while (true)
+		{
+			clientSocket = ::accept(listenSocket, (SOCKADDR*)&clientAddr, &addrLen);
+			if (clientSocket != INVALID_SOCKET)
+				break;
 
-            if (::WSAGetLastError() == EWOULDBLOCK)
-                continue;
+			if (::WSAGetLastError() == WSAEWOULDBLOCK)
+				continue;
 
-            return 0; // error
-        }
+			// 문제 있는 상황
+			return 0;
+		}
 
-        Session session = Session{ clientSocket };
-        WSAEVENT wsaEvent = ::WSACreateEvent();
-        session.overlapped.hEvent = wsaEvent;
+		Session session = Session{ clientSocket };
+		//WSAEVENT wsaEvent = ::WSACreateEvent();
 
-        cout << "Client Connected" << endl;
+		cout << "Client Connected !" << endl;
 
-        while (true)
-        {
-            WSABUF wsaBuf;
-            wsaBuf.buf = session.recvBuffer; //커널이 처리하기 때문에 절대로 건들면 안되는 부분
-            wsaBuf.len = BUFFSIZE;
+		while (true)
+		{
+			WSABUF wsaBuf;
+			wsaBuf.buf = session.recvBuffer;
+			wsaBuf.len = BUFSIZE;
 
-            DWORD recvLen = 0;
-            DWORD flags = 0;
+			DWORD recvLen = 0;
+			DWORD flags = 0;
+			if (::WSARecv(clientSocket, &wsaBuf, 1, &recvLen, &flags, &session.overlapped, RecvCallback) == SOCKET_ERROR)
+			{
+				if (::WSAGetLastError() == WSA_IO_PENDING)
+				{
+					// Pending
+					// Alertable Wait					
+					::SleepEx(INFINITE, TRUE);
+					//::WSAWaitForMultipleEvents(1, &wsaEvent, TRUE, WSA_INFINITE, TRUE);					
+				}
+				else
+				{
+					// TODO : 문제 있는 상황
+					break;
+				}
+			}
+			else
+			{
+				cout << "Data Recv Len = " << recvLen << endl;
+			}
+		}
 
-            if (::WSARecv(clientSocket, &wsaBuf, 1, &recvLen, &flags, &session.overlapped, nullptr) == SOCKET_ERROR)
-            {
-                if (::WSAGetLastError() == WSA_IO_PENDING)
-                {
-                    //pending 상태 - recvLen이 아직 채워지지 않음
-                    ::WSAWaitForMultipleEvents(1, &wsaEvent, TRUE, WSA_INFINITE, FALSE); //이벤트 형식으로 대기
-                    ::WSAGetOverlappedResult(session.socket, &session.overlapped, &recvLen, FALSE, &flags);
-                }
-                else
-                {
-                    //에러 사후 처리
-                    break;
-                }
-            }
+		::closesocket(session.socket);
+		//::WSACloseEvent(wsaEvent);
+	}
 
-            cout << "data recv len = " << recvLen << endl;
-        }
-
-        ::closesocket(session.socket);
-        ::WSACloseEvent(wsaEvent);
-
-    }
-
-    
-
-
-   
-    ::WSACleanup(); //socket terminate
-} 
+	// 윈속 종료
+	::WSACleanup();
+}
