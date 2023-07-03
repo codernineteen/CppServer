@@ -9,20 +9,33 @@
 
 #include "SocketUtils.h"
 #include "Listener.h"
+#include "Service.h"
+#include "Session.h"
+
+void MakeSharedSession()
+{
+	MakeShared<Session>();
+}
 
 int main()
-{
-	Listener listener;
-	listener.StartAccept(NetworkAddress(L"127.0.0.1", 7777));
-	
-	
+{	
+	ServerServiceRef service = MakeShared<ServerService>(
+		NetworkAddress(L"127.0.0.1", 7777), // network address
+		MakeShared<IocpCore>(), // iocp core
+		MakeShared<Session>, // session (no parentheses needed here)
+		100 // max count
+	);
+
+	ASSERT_CRASH(service->Start());
+
+
 	for (int32 i = 0; i < 4; i++)
 	{
 		GThreadManager->Launch([=]()
 			{
 				while (true)
 				{
-					GIocpCore.Dispatch();
+					service->GetIocpCore()->Dispatch();
 				}
 			}
 		);

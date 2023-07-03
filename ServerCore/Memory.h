@@ -36,7 +36,7 @@ Type* xnew(Args&&... args)
 	Type* memory = static_cast<Type*>(PoolAllocator::Alloc(sizeof(Type)));
 
 	//placement new
-	new(memory) Type(std::forward<Args>(args)...); //we already have memory space, just call constructor on the space.
+	new(memory)Type(forward<Args>(args)...); //we already have memory space, just call constructor on the space.
 	//...Arg achieves Polymorphism by taking arguments dynamically
 	return memory;
 }
@@ -48,9 +48,10 @@ void xdelete(Type* obj)
 	PoolAllocator::Release(obj);
 }
 
-//Pooling을 사용하지 않을 때, shared ptr 생성
-template<typename Type>
-shared_ptr<Type> MakeShared()
+
+//인자를 받는 shared_ptr 생성자
+template<typename Type, typename... Args>
+shared_ptr<Type> MakeShared(Args&&... args)
 {
-	return shared_ptr<Type> { xnew<Type>(), xdelete<Type> }; 
+	return shared_ptr<Type> { xnew<Type>(forward<Args>(args)...), xdelete<Type> };
 }

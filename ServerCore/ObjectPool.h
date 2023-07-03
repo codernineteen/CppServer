@@ -34,9 +34,10 @@ public:
 #endif
 	}
 
-	static shared_ptr<Type> MakeShared()
+	template<typename... Args>
+	static shared_ptr<Type> MakeShared(Args&& ...args)
 	{
-		shared_ptr<Type> sptr = { Pop() , Push };
+		shared_ptr<Type> sptr = { Pop(forward<Args>(args)...) , Push };
 		return sptr;
 	}
 
