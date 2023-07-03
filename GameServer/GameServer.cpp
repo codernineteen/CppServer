@@ -8,21 +8,24 @@
 #include "ThreadManager.h"
 
 #include "SocketUtils.h"
+#include "Listener.h"
 
 int main()
 {
-	SOCKET socket = SocketUtils::CreateSocket();
-
-	SocketUtils::BindAnyAddress(socket, 7777);
-	SocketUtils::Listen(socket);
-
-	SOCKET clientSocket = ::accept(socket, nullptr, nullptr);
-
-	cout << "Client connected" << endl;
+	Listener listener;
+	listener.StartAccept(NetworkAddress(L"127.0.0.1", 7777));
 	
-	while (true)
+	
+	for (int32 i = 0; i < 4; i++)
 	{
-
+		GThreadManager->Launch([=]()
+			{
+				while (true)
+				{
+					GIocpCore.Dispatch();
+				}
+			}
+		);
 	}
 
 	GThreadManager->Join();
