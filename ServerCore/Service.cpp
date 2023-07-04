@@ -22,7 +22,8 @@ void Service::CloseService()
 SessionRef Service::CreateSession()
 {
 	SessionRef session = _sessionFactory();
-
+	//서비스와 session을 연동
+	session->SetServiceRef(shared_from_this());
 	if (_iocpCore->Register(session) == false)
 		return nullptr;
 
@@ -57,6 +58,17 @@ ClientService::ClientService(NetworkAddress targetAddr, IocpCoreRef core, Sessio
 
 bool ClientService::Start()
 {
+	if (CanStart() == false)
+		return false;
+
+	const int32 maxSessionCount = GetMaxSessionCount();
+	for (int32 i = 0; i < maxSessionCount; i++)
+	{
+		SessionRef session = CreateSession();
+		if (session->Connect() == false)
+			return false;
+	}
+
 	return true;
 }
 

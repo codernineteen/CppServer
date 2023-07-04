@@ -1,28 +1,39 @@
 #include "pch.h"
 #include <iostream>
-#include "CorePch.h"
-#include <atomic>
-#include <mutex>
-#include <windows.h>
-#include <future>
-#include "ThreadManager.h"
 
-#include "SocketUtils.h"
-#include "Listener.h"
+#include "ThreadManager.h"
 #include "Service.h"
 #include "Session.h"
 
-void MakeSharedSession()
+class GameSession : public Session
 {
-	MakeShared<Session>();
-}
+public:
+	~GameSession()
+	{
+		cout << "server destructed" << endl;
+	}
+
+	virtual int32 OnRecv(BYTE* buffer, int32 len) override
+	{
+		//echo
+		cout << "OnRecv Len : " << len << endl;
+		Send(buffer, len);
+		return len;
+	}
+
+	virtual void OnSend(int32 len) override
+	{
+		//echo
+		cout << "OnSend Len : " << len << endl;
+	}
+};
 
 int main()
 {	
 	ServerServiceRef service = MakeShared<ServerService>(
 		NetworkAddress(L"127.0.0.1", 7777), // network address
 		MakeShared<IocpCore>(), // iocp core
-		MakeShared<Session>, // session (no parentheses needed here)
+		MakeShared<GameSession>, // session (no parentheses needed here)
 		100 // max count
 	);
 
