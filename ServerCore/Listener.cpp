@@ -3,6 +3,7 @@
 #include "SocketUtils.h"
 #include "IocpEvent.h"
 #include "Session.h"
+#include "Service.h"
 
 Listener::~Listener()
 {
@@ -16,13 +17,17 @@ Listener::~Listener()
 	}
 }
 
-bool Listener::StartAccept(NetworkAddress netAddr)
+bool Listener::StartAccept(ServerServiceRef service)
 {
+	_service = service;
+	if (_service == nullptr)
+		return false;
+
 	_socket = SocketUtils::CreateSocket();
 	if (_socket == INVALID_SOCKET)
 		return false;
 
-	if (GIocpCore.Register(this) == false)
+	if (_service->GetIocpCore()->Register(shared_from_this()) == false)
 		return false;
 
 	if (SocketUtils::SetReuseAddr(_socket, true) == false)
@@ -31,23 +36,23 @@ bool Listener::StartAccept(NetworkAddress netAddr)
 	if (SocketUtils::SetLinger(_socket, 0, 0) == false)
 		return false;
 
-	if (SocketUtils::Bind(_socket, netAddr) == false)
+	if (SocketUtils::Bind(_socket, _service->GetNetAddress()) == false)
 		return false;
 
 	if (SocketUtils::Listen(_socket) == false)
 		return false;
 
-	const int32  acceptCount = 1;
-	for(int32 i = 0; i < acceptCount; i++)
+	const int32 acceptCount = _service->GetMaxSessionCount();
+	for (int32 i = 0; i < acceptCount; i++)
 	{
 		//미리 acceptEvent를 등록해놔서 worker thread가 즉시 혹은 나중에 처리할 수 있도록 해준다.
 		AcceptEvent* acceptEvent = xnew<AcceptEvent>();
+		acceptEvent->owner = shared_from_this(); // listener 스스로를 owner로 지정
 		_acceptEvents.push_back(acceptEvent);
 		RegisterAccept(acceptEvent);
 	}
 
-
-	return false;
+	return true;
 }
 
 void Listener::CloseSocket()
@@ -63,7 +68,7 @@ HANDLE Listener::GetHandle()
 void Listener::Dispatch(IocpEvent* iocpEvent, int32 numOfBytes) 
 {
 	//core로부터의 dispatch흐름을 넘겨받아서 처리
-	ASSERT_CRASH(iocpEvent->GetType() == EventType::Accept);
+	ASSERT_CRASH(iocpEvent->eventType == EventType::Accept);
 
 	AcceptEvent* acceptEvent = static_cast<AcceptEvent*>(iocpEvent);
 	ProcessAccept(acceptEvent);
@@ -72,10 +77,10 @@ void Listener::Dispatch(IocpEvent* iocpEvent, int32 numOfBytes)
 void Listener::RegisterAccept(AcceptEvent* acceptEvent)
 {
 	//accept event에 session정보를 연동해서, dispatch시에 어떤 세션의 작업인지 파악할 수 있도록 해준다.
-	Session* session = xnew<Session>();
+	SessionRef session = _service->CreateSession(); //Register IOCP
 
 	acceptEvent->Init();
-	acceptEvent->SetSession(session);
+	acceptEvent->session = session;
 
 	DWORD bytesReceived = 0; //accept byte 를 뱉어줄 곳
 
@@ -92,7 +97,7 @@ void Listener::RegisterAccept(AcceptEvent* acceptEvent)
 
 void Listener::ProcessAccept(AcceptEvent* acceptEvent)
 {
-	Session* session = acceptEvent->GetSession(); //세션 정보 복원
+	SessionRef session = acceptEvent->session; //세션 정보 복원
 
 	if (false == SocketUtils::SetUpdateAcceptSocket(session->GetSocket(), _socket))
 	{
@@ -109,12 +114,9 @@ void Listener::ProcessAccept(AcceptEvent* acceptEvent)
 		return;
 	}
 	
-	session->SetNetAddress(NetworkAddress(sockAddr));
-
-	cout << "Client Connected" << endl;
-
 	//TODO 
-
+	session->SetNetAddress(NetworkAddress(sockAddr));
+	session->ProcessConnect();
 	RegisterAccept(acceptEvent);
 }
 

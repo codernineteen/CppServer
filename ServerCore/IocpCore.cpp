@@ -2,9 +2,6 @@
 #include "IocpCore.h"
 #include "IocpEvent.h"
 
-//임시 객체
-IocpCore GIocpCore;
-
 /**
 	IOCP Core class
 */
@@ -20,21 +17,22 @@ IocpCore::~IocpCore()
 	::CloseHandle(_iocpHandle);
 }
 
-bool IocpCore::Register(IocpObject* iocpObject)
+bool IocpCore::Register(IocpObjectRef iocpObject)
 {
 	//새로운 handle을 관찰하도록 port에 등록
-	return ::CreateIoCompletionPort(iocpObject->GetHandle(), _iocpHandle, reinterpret_cast<ULONG_PTR>(iocpObject), 0);
+	return ::CreateIoCompletionPort(iocpObject->GetHandle(), _iocpHandle, /*key*/ 0, 0);
 }
 
 bool IocpCore::Dispatch(uint32 timeoutMS)
 {
 	DWORD numOfBytes = 0;
-	IocpObject* iocpObject = nullptr;
+	ULONG_PTR key = 0;
 	IocpEvent* iocpEvent = nullptr;
 
-	if (::GetQueuedCompletionStatus(_iocpHandle, OUT & numOfBytes, OUT reinterpret_cast<PULONG_PTR>(&iocpObject), OUT reinterpret_cast<LPOVERLAPPED*>(&iocpEvent), timeoutMS))
+	if (::GetQueuedCompletionStatus(_iocpHandle, OUT & numOfBytes, OUT &key, OUT reinterpret_cast<LPOVERLAPPED*>(&iocpEvent), timeoutMS))
 	{
 		//성공했을 경우
+		IocpObjectRef iocpObject = iocpEvent->owner;
 		iocpObject->Dispatch(iocpEvent, numOfBytes);
 	}
 	else
@@ -47,6 +45,7 @@ bool IocpCore::Dispatch(uint32 timeoutMS)
 			return false;
 		default:
 			//TODO
+			IocpObjectRef iocpObject = iocpEvent->owner;
 			iocpObject->Dispatch(iocpEvent, numOfBytes);
 			break;
 		}
