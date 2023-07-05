@@ -23,4 +23,7 @@ using namespace std;
 #include "TypeCast.h"
 #include "Memory.h"
 
+//Network
+#include "SendBuffer.h"
+
 

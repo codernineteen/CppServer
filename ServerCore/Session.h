@@ -2,6 +2,7 @@
 #include "IocpCore.h"
 #include "IocpEvent.h"
 #include "NetworkAddress.h"
+#include "RecvBuffer.h"
 
 class Service;
 
@@ -15,13 +16,18 @@ class Session : public IocpObject
 	friend class IocpCore;
 	friend class Service;
 
+	enum
+	{
+		BUFFER_SIZE = 0x10000, //64KB 기본 버퍼 크기
+	};
+
 public:
 	Session();
 	virtual ~Session();
 
 public:
 	//외부에서 사용할 함수 정의
-	void Send(BYTE* buffer, int32 len);
+	void Send(SendBufferRef sendBuffer);
 	bool Connect();
 	void Disconnect(const WCHAR* cause);
 
@@ -45,12 +51,12 @@ private:
 	bool RegisterDisconnect();
 	void RegisterRecv();
 	//현재 코드에서는 임시로 event내에 버퍼를 저장하고 있으므로, sendEvent를 인자로 받아준다.
-	void RegisterSend(SendEvent* sendEvent);
+	void RegisterSend();
 
 	void ProcessConnect();
 	void ProcessDisconnect();
 	void ProcessRecv(int32 numOfBytes);
-	void ProcessSend(SendEvent* sendEvent, int32 numOfBytes);
+	void ProcessSend(int32 numOfBytes);
 
 	void HandleError(int32 errCode);
 
@@ -66,10 +72,6 @@ private:
 	HANDLE GetHandle() override;
 	void Dispatch(class IocpEvent* iocpEvent, int32 numOfBytes = 0) override;
 
-public:
-	//임시 버퍼
-	BYTE _recvBuffer[1000];
-
 private:
 	weak_ptr<Service> _service; // 참조 순환을 피하기 위해서 Service 에 대해서는 weak pointer로 참조
 	SOCKET _socket = INVALID_SOCKET;
@@ -80,13 +82,17 @@ private:
 	USE_LOCK;
 
 	//수신 관련
+	RecvBuffer _recvBuffer;
 
 	//송신 관련
+	Queue<SendBufferRef> _sendQueue;
+	Atomic<bool> _sendRegistered = false; //send가 등록됐는지 원자적으로 확인
 
 private:
 	//iocp event 재사용
 	ConnectEvent _connectEvent;
 	DisconnectEvent _disconnectEvent;
 	RecvEvent _recvEvent;
+	SendEvent _sendEvent;
 };
 

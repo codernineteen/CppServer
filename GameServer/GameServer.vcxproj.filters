@@ -18,16 +18,22 @@
     <ClCompile Include="pch.cpp">
       <Filter>Utils</Filter>
     </ClCompile>
-    <ClCompile Include="ConcurrentQueue.cpp">
-      <Filter>Main</Filter>
-    </ClCompile>
-    <ClCompile Include="ConcurrentStack.cpp">
-      <Filter>Main</Filter>
-    </ClCompile>
     <ClCompile Include="AccountManager.cpp">
       <Filter>Main\dump</Filter>
     </ClCompile>
     <ClCompile Include="PlayerManager.cpp">
+      <Filter>Main\dump</Filter>
+    </ClCompile>
+    <ClCompile Include="GameSessionManager.cpp">
+      <Filter>Main</Filter>
+    </ClCompile>
+    <ClCompile Include="GameSession.cpp">
+      <Filter>Main</Filter>
+    </ClCompile>
+    <ClCompile Include="ConcurrentQueue.cpp">
+      <Filter>Main\dump</Filter>
+    </ClCompile>
+    <ClCompile Include="ConcurrentStack.cpp">
       <Filter>Main\dump</Filter>
     </ClCompile>
   </ItemGroup>
@@ -35,16 +41,22 @@
     <ClInclude Include="pch.h">
       <Filter>Utils</Filter>
     </ClInclude>
-    <ClInclude Include="ConcurrentQueue.h">
-      <Filter>Main</Filter>
-    </ClInclude>
-    <ClInclude Include="ConcurrentStack.h">
-      <Filter>Main</Filter>
-    </ClInclude>
     <ClInclude Include="AccountManager.h">
       <Filter>Main\dump</Filter>
     </ClInclude>
     <ClInclude Include="PlayerManager.h">
+      <Filter>Main\dump</Filter>
+    </ClInclude>
+    <ClInclude Include="GameSessionManager.h">
+      <Filter>Main</Filter>
+    </ClInclude>
+    <ClInclude Include="GameSession.h">
+      <Filter>Main</Filter>
+    </ClInclude>
+    <ClInclude Include="ConcurrentQueue.h">
+      <Filter>Main\dump</Filter>
+    </ClInclude>
+    <ClInclude Include="ConcurrentStack.h">
       <Filter>Main\dump</Filter>
     </ClInclude>
   </ItemGroup>

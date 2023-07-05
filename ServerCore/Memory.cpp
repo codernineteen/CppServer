@@ -57,7 +57,7 @@ void* Memory::Allocate(int32 size)
 	MemoryHeader* header = nullptr;
 	const int32 allocSize = size + sizeof(MemoryHeader);
 #ifdef _STOMP
-	header = reinterpret_cast<MemoryHeader*>(StompAllocator::Alloc(allocsize));
+	header = reinterpret_cast<MemoryHeader*>(StompAllocator::Alloc(allocSize));
 #else
 	if (allocSize > MAX_ALLOC_SIZE)
 	{
