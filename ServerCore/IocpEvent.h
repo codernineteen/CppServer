@@ -83,7 +83,9 @@ class SendEvent : public IocpEvent
 public:
 	SendEvent() : IocpEvent(EventType::Send) {}
 
-	//TEMP
-	vector<BYTE> buffer;
+	//큐에 걸어놓았던 데이터를 보내기 위해서 SendEvent의 vector로 옮겨준다.
+	//WSASend를 하는 순간에 절대로 sendBuffer를 없어지지 않도록 해줘야 하는데,
+	//queue에서 sendBufferRef를 꺼내는 작업이 ref count를 줄여서 소멸 가능성을 야기할 수 있기 때문에 event로 옮겨주는 것이다.
+	Vector<SendBufferRef> sendBuffers;
 };
 
