@@ -4,6 +4,7 @@
 
 #include <Service.h>
 #include <Session.h>
+#include <BufferReader.h>
 
 char sendData[] = "Hello world!";
 
@@ -34,20 +35,22 @@ public:
 
 	virtual int32 OnRecvPacket(BYTE* buffer, int32 len) override
 	{
-		//echo
-		PacketHeader header = *((PacketHeader*)buffer);
+		BufferReader br(buffer, len);
+		PacketHeader header;
+		br >> header;
 
-		//cout << "Packet ID : " << header.id << ", Size : " << header.size << endl;
+		uint64 id;
+		uint32 hp;
+		uint16 attack;
+		br >> id >> hp >> attack;
+
+		cout << "id : " << id << "hp : " << hp << "attack : " << attack << endl;
 
 		char recvBuf[4096];
+		br.Read(recvBuf, header.size - sizeof(PacketHeader) - 8 - 4 - 2);
 		::memcpy(recvBuf, &buffer[4], header.size - sizeof(PacketHeader));
 		cout << recvBuf << endl;
 
-		SendBufferRef sendBuffer = GSendBufferManager->Open(4096);
-		::memcpy(sendBuffer->Buffer(), sendData, sizeof(sendData));
-		sendBuffer->Close(sizeof(sendData));
-
-		Send(sendBuffer);
 		return len;
 	}
 

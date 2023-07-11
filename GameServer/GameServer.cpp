@@ -5,6 +5,7 @@
 #include "Service.h"
 #include "GameSession.h"
 #include "GameSessionManager.h"
+#include "BufferWriter.h"
 
 int main()
 {	
@@ -31,17 +32,24 @@ int main()
 	}
 
 	//main thread broad cast
-	char sendData[1000] = "Hello world!";
+	char sendData[] = "Hello world!";
 	while (true)
 	{
 		SendBufferRef sendBuffer = GSendBufferManager->Open(4096);
 
-		BYTE* buffer = sendBuffer->Buffer();
-		((PacketHeader*)buffer)->size = (sizeof(sendData) + sizeof(PacketHeader));
-		((PacketHeader*)buffer)->id = 1;
+		BufferWriter bw(sendBuffer->Buffer(), sendBuffer->AllocSize());
 
-		::memcpy(&buffer[4], sendData, sizeof(sendData));
-		sendBuffer->Close((sizeof(sendData) + sizeof(PacketHeader)));
+		PacketHeader* header = bw.Reserve<PacketHeader>();
+
+		// id(uint64) , 체력(uint32), 공격력(uint16)
+		bw << (uint64)1001 << (uint32)100 << (uint16)10;
+		// 특정 데이터를 쓰고 싶을 때
+		bw.Write(sendData, sizeof(sendData));
+		
+		header->size = bw.WriteSize();
+		header->id = 1; // 1 : Msg
+		
+		sendBuffer->Close(bw.WriteSize());
 
 		GameSessionManager::GetInstance().Broadcast(sendBuffer);
 
