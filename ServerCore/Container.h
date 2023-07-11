@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <set>
 #include <unordered_set>
+#include <array>
 
 using namespace std;
 
@@ -17,6 +18,9 @@ using Vector = vector<Type, StlAllocator<Type>>;
 
 template<typename Type>
 using List = list<Type, StlAllocator<Type>>;
+
+template<typename Type, uint32 Size>
+using Array = array<Type, Size>;
 
 template<typename Key, typename Type, typename Pred = less<Key>>
 using Map = map<Key, Type, Pred, StlAllocator<pair<const Key, Type>>>;
