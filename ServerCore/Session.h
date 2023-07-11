@@ -96,3 +96,35 @@ private:
 	SendEvent _sendEvent;
 };
 
+
+/**
+	Packet Session
+*/
+
+/*
+	Send를 한다고 해서 모든 데이터를 항상 보낼 수 있는 것이 아니기 때문에,
+	받는 쪽에서는 불완전한 데이터를 받을 가능성이 있다.따라서 데이터의 시작
+	과 끝을 결정하기 위한 일종의 protocol을 정의해줄 필요가 있다.
+*/
+
+struct PacketHeader
+{
+	uint16 size;
+	uint16 id; // proto id (ex. 1 : login, 2 : movement)
+};
+
+// [size(2)][id(2)][data...]
+
+class PacketSession : public Session
+{
+public:
+	PacketSession();
+	virtual ~PacketSession();
+
+	PacketSessionRef GetPacketSessionRef() { return static_pointer_cast<PacketSession>(shared_from_this()); }
+
+protected:
+	virtual int32 OnRecv(BYTE* buffer, int32 len) sealed;
+	virtual int32 OnRecvPacket(BYTE* buffer, int32 len) abstract;
+};
+

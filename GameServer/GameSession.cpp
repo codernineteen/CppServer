@@ -13,15 +13,12 @@ void GameSession::OnConnected()
     GameSessionManager::GetInstance().Add(std::static_pointer_cast<GameSession>(shared_from_this()));
 }
 
-int32 GameSession::OnRecv(BYTE* buffer, int32 len)
+int32 GameSession::OnRecvPacket(BYTE* buffer, int32 len)
 {
     // Echo
-    cout << "OnRecv Len: " << len << endl;
+    PacketHeader header = *((PacketHeader*)buffer);
 
-    SendBufferRef sendBuffer = std::make_shared<SendBuffer>(4096);
-    sendBuffer->CopyData(buffer, len);
-
-    GameSessionManager::GetInstance().Broadcast(sendBuffer);
+    cout << "Packet ID : " << header.id << ", Size : " << header.size << endl;
 
     return len;
 }
@@ -29,5 +26,5 @@ int32 GameSession::OnRecv(BYTE* buffer, int32 len)
 void GameSession::OnSend(int32 len)
 {
     // Echo
-    cout << "OnSend Len: " << len << endl;
+    //cout << "OnSend Len: " << len << endl;
 }

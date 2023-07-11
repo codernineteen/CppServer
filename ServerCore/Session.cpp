@@ -15,13 +15,22 @@ Session::~Session()
 
 void Session::Send(SendBufferRef sendBuffer)
 {
+	if (isConnected() == false)
+		return;
+
+	bool registerSend = false;
 	// 현재 Register Send가 걸리지 않은 상태이면, Send 요청
-	WRITE_LOCK;
+	{
+		WRITE_LOCK;
 
-	_sendQueue.push(sendBuffer);
+		_sendQueue.push(sendBuffer);
 
-	//exchange는 이전의 값을 반환
-	if (_sendRegistered.exchange(true) == false)
+		//exchange는 이전의 값을 반환
+		if (_sendRegistered.exchange(true) == false)
+			registerSend = true;
+	}
+
+	if(registerSend)
 		RegisterSend();
 }
 
@@ -38,9 +47,6 @@ void Session::Disconnect(const WCHAR* cause)
 
 	// 임시 처리
 	wcout << "Disconnect" << cause << endl;
-
-	OnDisconnected(); //나중에 override
-	GetServiceRef()->ReleaseSession(GetSessionRef());
 
 	RegisterDisconnect();
 }
@@ -229,6 +235,9 @@ void Session::ProcessConnect()
 void Session::ProcessDisconnect()
 {
 	_disconnectEvent.owner = nullptr;
+
+	OnDisconnected(); //나중에 override
+	GetServiceRef()->ReleaseSession(GetSessionRef());
 }
 
 void Session::ProcessRecv(int32 numOfBytes)
@@ -283,7 +292,7 @@ void Session::ProcessSend(int32 numOfBytes)
 	if (_sendQueue.empty())
 		_sendRegistered.store(false);
 	else
-		RegisterSend(); //처리를 마무리하기 전에 다시 큐가 찾으니까, send등록
+		RegisterSend(); //처리를 마무리하기 전에 다시 큐가 찼으니까, send등록
 }
 
 void Session::HandleError(int32 errCode)
@@ -298,4 +307,44 @@ void Session::HandleError(int32 errCode)
 		cout << "Handle Error : " << errCode << endl;
 		break;
 	}
+}
+
+/**
+	Packet Session
+*/
+
+PacketSession::PacketSession()
+{
+}
+
+PacketSession::~PacketSession()
+{
+}
+
+// [size(2)][id(2)][data...]
+int32 PacketSession::OnRecv(BYTE* buffer, int32 len)
+{
+	int32 processLen = 0; //얼마나 처리했는지 관리
+
+	while (true) 
+	{
+		int32 dataSize = len - processLen;
+		// 최소한 헤더는 파싱할 수 있어야 한다.(4바이트)
+		if (dataSize < sizeof(PacketHeader))
+			break;
+
+		PacketHeader header = *(reinterpret_cast<PacketHeader*>(&buffer[processLen])); //4바이트를 헤더에 복사
+
+		//헤더에 기록된 패킷 크기를 파싱할 수 있어야 한다.
+		if (dataSize < header.size)
+			break;
+
+		// 패킷 조립 성공
+		OnRecvPacket(&buffer[processLen], header.size);
+		
+		processLen += header.size;
+	}
+
+
+	return processLen;
 }

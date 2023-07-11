@@ -7,7 +7,7 @@
 
 char sendData[] = "Hello world!";
 
-class ServerSession : public Session
+class ServerSession : public PacketSession
 {
 public:
 	~ServerSession()
@@ -18,26 +18,35 @@ public:
 
 	virtual void OnConnected() override
 	{
-		cout << "Connected to Server" << endl;
-		SendBufferRef sendBuffer = MakeShared<SendBuffer>(4096);
-		sendBuffer->CopyData(sendData, len16(sendData));
-		Send(sendBuffer);
+		//cout << "Connected to Server" << endl;
+		/*SendBufferRef sendBuffer = GSendBufferManager->Open(4096);
+		::memcpy(sendBuffer->Buffer(), sendData, sizeof(sendData));
+		sendBuffer->Close(sizeof(sendData));
+
+
+		Send(sendBuffer);*/
 	}
 
 	virtual void OnDisconnected() override
 	{
-		cout << "Disconnected" << endl;
+		//cout << "Disconnected" << endl;
 	}
 
-	virtual int32 OnRecv(BYTE* buffer, int32 len) override
+	virtual int32 OnRecvPacket(BYTE* buffer, int32 len) override
 	{
 		//echo
-		cout << "OnRecv Len : " << len << endl;
+		PacketHeader header = *((PacketHeader*)buffer);
 
-		this_thread::sleep_for(1s);
+		//cout << "Packet ID : " << header.id << ", Size : " << header.size << endl;
 
-		SendBufferRef sendBuffer = MakeShared<SendBuffer>(4096);
-		sendBuffer->CopyData(sendData, len16(sendData));
+		char recvBuf[4096];
+		::memcpy(recvBuf, &buffer[4], header.size - sizeof(PacketHeader));
+		cout << recvBuf << endl;
+
+		SendBufferRef sendBuffer = GSendBufferManager->Open(4096);
+		::memcpy(sendBuffer->Buffer(), sendData, sizeof(sendData));
+		sendBuffer->Close(sizeof(sendData));
+
 		Send(sendBuffer);
 		return len;
 	}
@@ -45,7 +54,7 @@ public:
 	virtual void OnSend(int32 len) override
 	{
 		//echo
-		cout << "OnSend Len : " << len << endl;
+		//cout << "OnSend Len : " << len << endl;
 	}
 };
 
@@ -57,7 +66,7 @@ int main()
 		NetworkAddress(L"127.0.0.1", 7777), // network address
 		MakeShared<IocpCore>(), // iocp core
 		MakeShared<ServerSession>, // session (no parentheses needed here)
-		5 // max count
+		1000 // max count
 	);
 
 	ASSERT_CRASH(service->Start());
