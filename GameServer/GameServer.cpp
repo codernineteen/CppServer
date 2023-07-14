@@ -1,11 +1,13 @@
 #include "pch.h"
 #include <iostream>
+#include <tchar.h>
 
 #include "ThreadManager.h"
 #include "Service.h"
 #include "GameSession.h"
 #include "GameSessionManager.h"
 #include "BufferWriter.h"
+#include "ServerPacketHandler.h"
 
 int main()
 {	
@@ -32,25 +34,10 @@ int main()
 	}
 
 	//main thread broad cast
-	char sendData[] = "Hello world!";
 	while (true)
 	{
-		SendBufferRef sendBuffer = GSendBufferManager->Open(4096);
-
-		BufferWriter bw(sendBuffer->Buffer(), sendBuffer->AllocSize());
-
-		PacketHeader* header = bw.Reserve<PacketHeader>();
-
-		// id(uint64) , 체력(uint32), 공격력(uint16)
-		bw << (uint64)1001 << (uint32)100 << (uint16)10;
-		// 특정 데이터를 쓰고 싶을 때
-		bw.Write(sendData, sizeof(sendData));
-		
-		header->size = bw.WriteSize();
-		header->id = 1; // 1 : Msg
-		
-		sendBuffer->Close(bw.WriteSize());
-
+		vector<BuffData> buffs { BuffData{100, 1.5f}, BuffData{ 200, 2.3f }};
+		SendBufferRef sendBuffer = ServerPacketHandler::Make_S_TEST(1001, 100, 10, buffs, L"안녕하세요");
 		GameSessionManager::GetInstance().Broadcast(sendBuffer);
 
 		this_thread::sleep_for(250ms);

@@ -25,5 +25,6 @@ using namespace std;
 
 //Network
 #include "SendBuffer.h"
+#include "Session.h"
 
 
