@@ -21,58 +21,65 @@ void ClientPacketHandler::HandlePacket(BYTE* buffer, int32 len)
 
 }
 
-struct BuffData
-{
-	uint64 buffid;
-	float remainTime;
-};
-
+#pragma pack(1)
 //packet 설계
-struct S_TEST
+struct PKT_S_TEST
 {
+	struct BuffsListItem
+	{
+		uint64 buffid;
+		float remainTime;
+	};
+
+	uint16 packetSize; //공용 헤더
+	uint16 packetId; //공용 헤더
 	uint64 id;
 	uint32 hp;
 	uint16 attack;
-	//가변 데이터
-	vector<BuffData> buffs;
-	
-	wstring name;
+	uint16 buffOffset; //가변 데이터 시작위치
+	uint16 buffsCount; //가변 데이터 원소 개수
+
+	bool Validate()
+	{
+		uint32 size = 0;
+
+		size += sizeof(PKT_S_TEST);
+		size += buffsCount * sizeof(BuffsListItem);
+		if (size != packetSize)
+			return false;
+
+		//패킷에 명시한 가변 데이터 길이를 벗어나는 경우
+		if (buffOffset + buffsCount * sizeof(BuffsListItem) > packetSize)
+			return false;
+
+		return true;
+	}
 };
+#pragma pack()
 
 void ClientPacketHandler::Handle_S_TEST(BYTE* buffer, int32 len)
 {
 	BufferReader br(buffer, len);
 
-	PacketHeader header;
-	br >> header;
+	if (len < sizeof(PKT_S_TEST))
+		return;
 
-	uint64 id;
-	uint32 hp;
-	uint16 attack;
-	vector<BuffData> buffs;
-	uint16 buffCount;
+	PKT_S_TEST pkt;
+	br >> pkt;
 
-	br >> id >> hp >> attack >> buffCount;
+	if (pkt.Validate() == false)
+		return;
 
-	cout << "id : " << id << " hp : " << hp << " attack : " << attack << endl;
-	buffs.resize(buffCount);
-	for (int32 i = 0; i < buffCount; i++)
-	{
-		br >> buffs[i].buffid >> buffs[i].remainTime;
-	}
+	vector<PKT_S_TEST::BuffsListItem> buffs;
+	buffs.resize(pkt.buffsCount);
 
-	cout << "BuffCount : " << buffCount << endl;
-	for (int32 i = 0; i < buffCount; i++)
+	for (int32 i = 0; i < pkt.buffsCount; i++)
+		br >> buffs[i];
+
+
+	cout << "BuffCount : " << pkt.buffsCount << endl;
+	for (int32 i = 0; i < pkt.buffsCount; i++)
 	{
 		cout << "BuffInfo : [" << buffs[i].buffid << ", " << buffs[i].remainTime << "]" << endl;
 	}
-
-	wstring name;
-	uint16 nameLen;
-	br >> nameLen;
-	name.resize(nameLen);
-	br.Read((void*)name.data(), nameLen + sizeof(WCHAR));
-
-	wcout.imbue(std::locale("kor"));
-	wcout << "name" << endl;
 }

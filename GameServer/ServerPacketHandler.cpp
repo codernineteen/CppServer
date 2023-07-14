@@ -18,7 +18,7 @@ void ServerPacketHandler::HandlePacket(BYTE* buffer, int32 len)
 }
 
 //버퍼를 생성하는 부분을 재사용하기 위한 함수 설계
-SendBufferRef ServerPacketHandler::Make_S_TEST(uint64 id, uint32 hp, uint32 power, vector<BuffData> buffs, wstring name)
+SendBufferRef ServerPacketHandler::Make_S_TEST(uint64 id, uint32 hp, uint16 attack, vector<BuffData> buffs, wstring name)
 {
 	SendBufferRef sendBuffer = GSendBufferManager->Open(4096);
 
@@ -26,18 +26,22 @@ SendBufferRef ServerPacketHandler::Make_S_TEST(uint64 id, uint32 hp, uint32 powe
 
 	PacketHeader* header = bw.Reserve<PacketHeader>();
 
-	bw << id << hp << power;
+	bw << id << hp << attack;
+
+	struct ListHeader
+	{
+		uint16 offset;
+		uint16 count;
+	};
 
 	//가변 데이터
-	bw << (uint16)buffs.size();
+	ListHeader* buffsHeader = bw.Reserve<ListHeader>();
+
+	buffsHeader->offset = bw.WriteSize(); //현재까지 쓴 공간의 offset을 전달
+	buffsHeader->count = buffs.size();
 
 	for (BuffData& buff : buffs)
-	{
 		bw << buff.buffid << buff.remainTime;
-	}
-	
-	bw << (uint16)name.size();
-	bw.Write((void*)name.data(), name.size() * sizeof(WCHAR));
 
 	header->size = bw.WriteSize();
 	header->id = S_TEST;
