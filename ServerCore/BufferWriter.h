@@ -25,7 +25,7 @@ public:
 	BufferWriter& operator<<(T&& src); // rvalue reference
 
 	template<typename T>
-	T* Reserve();
+	T* Reserve(uint16 count = 1);
 
 private:
 	BYTE* _buffer = nullptr; // 버퍼 시작 주소
@@ -34,13 +34,13 @@ private:
 };
 
 template<typename T>
-T* BufferWriter::Reserve()
+T* BufferWriter::Reserve(uint16 count)
 {
-	if (FreeSize() < sizeof(T))
+	if (FreeSize() < sizeof(T)*count)
 		return nullptr;
 
 	T* ret = reinterpret_cast<T*>(&_buffer[_pos]);
-	_pos += sizeof(T);
+	_pos += (sizeof(T)*count);
 
 	return ret;
 }

@@ -36,8 +36,32 @@ int main()
 	//main thread broad cast
 	while (true)
 	{
-		vector<BuffData> buffs { BuffData{100, 1.5f}, BuffData{ 200, 2.3f }};
-		SendBufferRef sendBuffer = ServerPacketHandler::Make_S_TEST(1001, 100, 10, buffs, L"æ»≥Á«œººø‰");
+		PKT_S_TEST_WRITE pktWriter(1001, 100, 10);
+		PKT_S_TEST_WRITE::BuffsList buffList = pktWriter.ReserveBuffsList(3);
+		buffList[0] = { 100, 1.5f };
+		buffList[1] = { 200, 2.5f };
+		buffList[2] = { 300, 3.5f };
+
+		PKT_S_TEST_WRITE::BuffsVitimsList vic0 = pktWriter.ReserveBuffsVictimsList(&buffList[0], 3);
+		{
+			vic0[0] = 1000;
+			vic0[1] = 2000;
+			vic0[2] = 3000;
+		}
+
+		PKT_S_TEST_WRITE::BuffsVitimsList vic1 = pktWriter.ReserveBuffsVictimsList(&buffList[1], 2);
+		{
+			vic1[0] = 1000;
+			vic1[1] = 2000;
+		}
+
+		PKT_S_TEST_WRITE::BuffsVitimsList vic2 = pktWriter.ReserveBuffsVictimsList(&buffList[2], 2);
+		{
+			vic2[0] = 1000;
+			vic2[1] = 2000;
+		}
+
+		SendBufferRef sendBuffer = pktWriter.CloseAndReturn();
 		GameSessionManager::GetInstance().Broadcast(sendBuffer);
 
 		this_thread::sleep_for(250ms);
